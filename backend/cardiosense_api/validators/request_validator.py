@@ -46,3 +46,15 @@ def validate_lstm_payload(payload: dict[str, Any]) -> np.ndarray:
         raise ValueError("All timesteps in 'series' must have the same number of features.")
 
     return np.array([validated_steps], dtype=np.float32)
+
+
+def validate_combined_payload(payload: dict[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    if not payload:
+        raise ValueError("Request body must be valid JSON.")
+
+    features_rf = payload.get("features_rf")
+    features_lstm = payload.get("features_lstm")
+
+    rf_array = validate_rf_payload({"features": features_rf})
+    lstm_array = validate_lstm_payload({"series": features_lstm})
+    return rf_array, lstm_array

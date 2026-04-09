@@ -8,7 +8,7 @@ from tensorflow.keras.models import load_model
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 RF_MODEL_PATH = BASE_DIR / "model.pkl"
-LSTM_MODEL_PATH = BASE_DIR / "best_lstm_model.h5"
+LSTM_MODEL_PATH = BASE_DIR / "lstm_model.h5"
 
 _rf_model = None
 _lstm_model = None
@@ -30,11 +30,15 @@ def get_lstm_model() -> Any:
 
 def predict_rf(features: np.ndarray) -> tuple[str, float]:
     model = get_rf_model()
-    probabilities = model.predict_proba(features)[0]
-    high_risk_confidence = float(probabilities[1])
+    prediction = model.predict(features)[0]
+    risk = "High Risk" if int(prediction) == 1 else "Low Risk"
 
-    risk = "High Risk" if high_risk_confidence >= 0.5 else "Low Risk"
-    confidence = high_risk_confidence if risk == "High Risk" else 1.0 - high_risk_confidence
+    confidence = 1.0
+    if hasattr(model, "predict_proba"):
+        probabilities = model.predict_proba(features)[0]
+        high_risk_confidence = float(probabilities[1])
+        confidence = high_risk_confidence if risk == "High Risk" else 1.0 - high_risk_confidence
+
     return risk, float(confidence)
 
 
@@ -46,3 +50,9 @@ def predict_lstm(sequence: np.ndarray) -> tuple[str, float]:
     risk = "High Risk" if high_risk_confidence >= 0.5 else "Low Risk"
     confidence = high_risk_confidence if risk == "High Risk" else 1.0 - high_risk_confidence
     return risk, float(confidence)
+
+
+def combine_predictions(rf_risk: str, lstm_risk: str) -> str:
+    if rf_risk == "High Risk" and lstm_risk == "High Risk":
+        return "High Risk"
+    return "Low Risk"

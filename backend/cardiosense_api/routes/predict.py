@@ -1,37 +1,37 @@
 from flask import Blueprint, jsonify, request
 
-from cardiosense_api.services.model_service import predict_lstm, predict_rf
-from cardiosense_api.validators.request_validator import validate_lstm_payload, validate_rf_payload
+from cardiosense_api.services.model_service import combine_predictions, predict_lstm, predict_rf
+from cardiosense_api.validators.request_validator import validate_combined_payload
 
 
 predict_bp = Blueprint("predict", __name__)
 
 
-@predict_bp.post("/rf")
-def predict_random_forest():
+@predict_bp.post("")
+def predict():
     try:
         payload = request.get_json(silent=True)
-        features = validate_rf_payload(payload)
-        risk, confidence = predict_rf(features)
-        return jsonify({"risk": risk, "confidence": confidence}), 200
+        features_rf, features_lstm = validate_combined_payload(payload)
+
+        rf_prediction, _ = predict_rf(features_rf)
+        lstm_prediction, _ = predict_lstm(features_lstm)
+        final_prediction = combine_predictions(rf_prediction, lstm_prediction)
+
+        return (
+            jsonify(
+                {
+                    "final_prediction": final_prediction,
+                    "rf_prediction": rf_prediction,
+                    "lstm_prediction": lstm_prediction,
+                    "random_forest": rf_prediction,
+                    "lstm": lstm_prediction,
+                }
+            ),
+            200,
+        )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
     except FileNotFoundError:
-        return jsonify({"error": "Random Forest model file not found."}), 500
+        return jsonify({"error": "One or more model files were not found."}), 500
     except Exception:
-        return jsonify({"error": "Failed to run Random Forest prediction."}), 500
-
-
-@predict_bp.post("/lstm")
-def predict_lstm_route():
-    try:
-        payload = request.get_json(silent=True)
-        sequence = validate_lstm_payload(payload)
-        risk, confidence = predict_lstm(sequence)
-        return jsonify({"risk": risk, "confidence": confidence}), 200
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except FileNotFoundError:
-        return jsonify({"error": "LSTM model file not found."}), 500
-    except Exception:
-        return jsonify({"error": "Failed to run LSTM prediction."}), 500
+        return jsonify({"error": "Failed to run prediction."}), 500
