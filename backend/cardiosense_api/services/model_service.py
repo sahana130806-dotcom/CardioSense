@@ -6,14 +6,23 @@ import numpy as np
 from tensorflow.keras.models import load_model
 
 
+# ===============================
+# PATHS
+# ===============================
 BASE_DIR = Path(__file__).resolve().parents[2]
+
 RF_MODEL_PATH = BASE_DIR / "model.pkl"
-LSTM_MODEL_PATH = BASE_DIR / "lstm_model.h5"
+LSTM_MODEL_PATH = BASE_DIR / "best_lstm_model.h5"
+SCALER_PATH = BASE_DIR / "scaler.pkl"   # 🔥 IMPORTANT
 
 _rf_model = None
 _lstm_model = None
+_scaler = None
 
 
+# ===============================
+# LOAD MODELS
+# ===============================
 def get_rf_model() -> Any:
     global _rf_model
     if _rf_model is None:
@@ -28,31 +37,63 @@ def get_lstm_model() -> Any:
     return _lstm_model
 
 
-def predict_rf(features: np.ndarray) -> tuple[str, float]:
+def get_scaler():
+    global _scaler
+    if _scaler is None:
+        _scaler = joblib.load(SCALER_PATH)
+    return _scaler
+
+
+# ===============================
+# PREPROCESS INPUT
+# ===============================
+def preprocess_input(data: dict) -> np.ndarray:
+    features = np.array([[
+        data["age"],
+        data["trestbps"],
+        data["chol"],
+        data["thalach"],
+        data["fbs"],
+        data["cp"]
+    ]])
+
+    scaler = get_scaler()
+    features_scaled = scaler.transform(features)
+
+    return features_scaled
+
+
+# ===============================
+# RANDOM FOREST
+# ===============================
+def predict_rf(data: dict) -> int:
     model = get_rf_model()
-    prediction = model.predict(features)[0]
-    risk = "High Risk" if int(prediction) == 1 else "Low Risk"
 
-    confidence = 1.0
-    if hasattr(model, "predict_proba"):
-        probabilities = model.predict_proba(features)[0]
-        high_risk_confidence = float(probabilities[1])
-        confidence = high_risk_confidence if risk == "High Risk" else 1.0 - high_risk_confidence
+    X = preprocess_input(data)
 
-    return risk, float(confidence)
+    prediction = model.predict(X)[0]
+
+    return int(prediction)
 
 
-def predict_lstm(sequence: np.ndarray) -> tuple[str, float]:
+# ===============================
+# LSTM
+# ===============================
+def predict_lstm(data: dict) -> int:
     model = get_lstm_model()
-    prediction = model.predict(sequence, verbose=0)
-    high_risk_confidence = float(prediction.squeeze())
 
-    risk = "High Risk" if high_risk_confidence >= 0.5 else "Low Risk"
-    confidence = high_risk_confidence if risk == "High Risk" else 1.0 - high_risk_confidence
-    return risk, float(confidence)
+    X = preprocess_input(data)
+
+    # 🔥 Convert to sequence (timesteps = 15)
+    X_seq = np.repeat(X, 15, axis=0).reshape(1, 15, -1)
+
+    prediction = model.predict(X_seq, verbose=0)
+
+    return int(prediction[0][0] > 0.5)
 
 
-def combine_predictions(rf_risk: str, lstm_risk: str) -> str:
-    if rf_risk == "High Risk" and lstm_risk == "High Risk":
-        return "High Risk"
-    return "Low Risk"
+# ===============================
+# COMBINE
+# ===============================
+def combine_predictions(rf: int, lstm: int) -> int:
+    return 1 if (rf + lstm) >= 1 else 0

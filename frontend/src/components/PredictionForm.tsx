@@ -21,12 +21,13 @@ export interface PatientData {
   chestPainType: string;
 }
 
-interface Props {
-  onPredict: (data: PatientData) => void;
-  isLoading: boolean;
+interface PredictionResult {
+  final_prediction: number;
+  rf_prediction: number;
+  lstm_prediction: number;
 }
 
-const PredictionForm = ({ onPredict, isLoading }: Props) => {
+const PredictionForm = () => {
   const [form, setForm] = useState<PatientData>({
     age: "",
     restingBP: "",
@@ -36,113 +37,163 @@ const PredictionForm = ({ onPredict, isLoading }: Props) => {
     chestPainType: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [result, setResult] = useState<PredictionResult | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onPredict(form);
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        age: Number(form.age),
+        trestbps: Number(form.restingBP),
+        chol: Number(form.cholesterol),
+        thalach: Number(form.maxHeartRate),
+        fbs: form.fastingBS ? 1 : 0,
+        cp: mapChestPain(form.chestPainType),
+      };
+
+      const response = await fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      console.log("Prediction:", data);
+
+      setResult(data);
+
+    } catch (error) {
+      console.error("Error:", error);
+    }
+
+    setIsLoading(false);
+  };
+
+  const mapChestPain = (type: string) => {
+    switch (type) {
+      case "typical": return 0;
+      case "atypical": return 1;
+      case "non-anginal": return 2;
+      case "asymptomatic": return 3;
+      default: return 0;
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex items-center gap-2 text-primary">
-        <Activity className="h-5 w-5" />
-        <h2 className="text-lg font-semibold">Patient Information</h2>
-      </div>
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="age">Age</Label>
-          <Input
-            id="age"
-            type="number"
-            placeholder="e.g. 55"
-            value={form.age}
-            onChange={(e) => setForm({ ...form, age: e.target.value })}
-            required
-          />
+        <div className="flex items-center gap-2 text-primary">
+          <Activity className="h-5 w-5" />
+          <h2 className="text-lg font-semibold">Patient Information</h2>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="bp">Resting Blood Pressure (mm Hg)</Label>
-          <Input
-            id="bp"
-            type="number"
-            placeholder="e.g. 130"
-            value={form.restingBP}
-            onChange={(e) => setForm({ ...form, restingBP: e.target.value })}
-            required
-          />
+        <div className="grid gap-5 sm:grid-cols-2">
+
+          <div className="space-y-2">
+            <Label>Age</Label>
+            <Input
+              type="number"
+              value={form.age}
+              onChange={(e) => setForm({ ...form, age: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Resting BP</Label>
+            <Input
+              type="number"
+              value={form.restingBP}
+              onChange={(e) => setForm({ ...form, restingBP: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Cholesterol</Label>
+            <Input
+              type="number"
+              value={form.cholesterol}
+              onChange={(e) => setForm({ ...form, cholesterol: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Max Heart Rate</Label>
+            <Input
+              type="number"
+              value={form.maxHeartRate}
+              onChange={(e) => setForm({ ...form, maxHeartRate: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Chest Pain Type</Label>
+            <Select
+              value={form.chestPainType}
+              onValueChange={(v) => setForm({ ...form, chestPainType: v })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="typical">Typical</SelectItem>
+                <SelectItem value="atypical">Atypical</SelectItem>
+                <SelectItem value="non-anginal">Non-Anginal</SelectItem>
+                <SelectItem value="asymptomatic">Asymptomatic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+            <Label>Fasting Blood Sugar &gt; 120</Label>
+            <Switch
+              checked={form.fastingBS}
+              onCheckedChange={(v) => setForm({ ...form, fastingBS: v })}
+            />
+          </div>
+
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="chol">Cholesterol (mg/dL)</Label>
-          <Input
-            id="chol"
-            type="number"
-            placeholder="e.g. 240"
-            value={form.cholesterol}
-            onChange={(e) => setForm({ ...form, cholesterol: e.target.value })}
-            required
-          />
-        </div>
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? "Analyzing..." : "Predict Risk"}
+        </Button>
 
-        <div className="space-y-2">
-          <Label htmlFor="hr">Maximum Heart Rate</Label>
-          <Input
-            id="hr"
-            type="number"
-            placeholder="e.g. 150"
-            value={form.maxHeartRate}
-            onChange={(e) => setForm({ ...form, maxHeartRate: e.target.value })}
-            required
-          />
-        </div>
+      </form>
 
-        <div className="space-y-2">
-          <Label htmlFor="chest">Chest Pain Type</Label>
-          <Select
-            value={form.chestPainType}
-            onValueChange={(v) => setForm({ ...form, chestPainType: v })}
-            required
-          >
-            <SelectTrigger id="chest">
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="typical">Typical Angina</SelectItem>
-              <SelectItem value="atypical">Atypical Angina</SelectItem>
-              <SelectItem value="non-anginal">Non-Anginal Pain</SelectItem>
-              <SelectItem value="asymptomatic">Asymptomatic</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      {/* 🔥 RESULT DISPLAY */}
+      {result && (
+        <div className="text-center space-y-2">
 
-        <div className="flex items-center justify-between rounded-lg border bg-muted/40 px-4 py-3">
-          <Label htmlFor="fbs" className="cursor-pointer">Fasting Blood Sugar &gt; 120 mg/dL</Label>
-          <Switch
-            id="fbs"
-            checked={form.fastingBS}
-            onCheckedChange={(v) => setForm({ ...form, fastingBS: v })}
-          />
-        </div>
-      </div>
+          <div className="text-lg font-semibold">
+            Final Result:
+            {result.final_prediction === 1 ? (
+              <span className="text-red-500"> ⚠️ High Risk</span>
+            ) : (
+              <span className="text-green-500"> ✅ Low Risk</span>
+            )}
+          </div>
 
-      <Button type="submit" size="lg" className="w-full gap-2" disabled={isLoading}>
-        {isLoading ? (
-          <>
-            <span className="relative flex h-5 w-5">
-              <span className="absolute inline-flex h-full w-full rounded-full bg-primary-foreground/40 animate-pulse-ring" />
-              <Heart className="relative h-5 w-5 animate-heartbeat" />
-            </span>
-            Analyzing…
-          </>
-        ) : (
-          <>
-            <Heart className="h-5 w-5" />
-            Predict Risk
-          </>
-        )}
-      </Button>
-    </form>
+          <div className="text-sm">
+            Random Forest: {result.rf_prediction}
+          </div>
+
+          <div className="text-sm">
+            LSTM: {result.lstm_prediction}
+          </div>
+
+        </div>
+      )}
+    </div>
   );
 };
 
