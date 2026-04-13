@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Any
-
+import pandas as pd
 import joblib
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -9,15 +9,19 @@ from tensorflow.keras.models import load_model
 # ===============================
 # PATHS
 # ===============================
-BASE_DIR = Path(__file__).resolve().parents[2]
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-RF_MODEL_PATH = BASE_DIR / "model.pkl"
-LSTM_MODEL_PATH = BASE_DIR / "best_lstm_model.h5"
-SCALER_PATH = BASE_DIR / "scaler.pkl"   # 🔥 IMPORTANT
+RF_MODEL_PATH = BASE_DIR / "models"/"model.pkl"
+LSTM_MODEL_PATH = BASE_DIR / "models"/"best_lstm_model.h5"
+
+print("RF PATH:", RF_MODEL_PATH)
+print("LSTM PATH:", LSTM_MODEL_PATH)
+print("RF EXISTS:", RF_MODEL_PATH.exists())
+print("LSTM EXISTS:", LSTM_MODEL_PATH.exists())
 
 _rf_model = None
 _lstm_model = None
-_scaler = None
+
 
 
 # ===============================
@@ -37,31 +41,60 @@ def get_lstm_model() -> Any:
     return _lstm_model
 
 
-def get_scaler():
-    global _scaler
-    if _scaler is None:
-        _scaler = joblib.load(SCALER_PATH)
-    return _scaler
+
 
 
 # ===============================
 # PREPROCESS INPUT
 # ===============================
 def preprocess_input(data: dict) -> np.ndarray:
-    features = np.array([[
-        data["age"],
-        data["trestbps"],
-        data["chol"],
-        data["thalach"],
-        data["fbs"],
-        data["cp"]
-    ]])
+    # 🔥 Create full feature dictionary
+    features = {
+        'age': data['age'],
+        'trestbps': data['trestbps'],
+        'chol': data['chol'],
+        'fbs': data['fbs'],
+        'thalch': data['thalach'],  # ⚠️ name match
 
-    scaler = get_scaler()
-    features_scaled = scaler.transform(features)
+        # Derived / default values
+        'exang': 1 if data['thalach'] < 100 else 0,
+        'oldpeak': (data['chol'] / 200),
 
-    return features_scaled
+        # One-hot encoded defaults
+        'sex_Male': 1,
+        'dataset_Hungary': 0,
+        'dataset_Switzerland': 0,
+        'dataset_VA Long Beach': 0,
 
+        # Chest pain encoding
+        'cp_atypical angina': 1 if data['cp'] == 1 else 0,
+        'cp_non-anginal': 1 if data['cp'] == 2 else 0,
+        'cp_typical angina': 1 if data['cp'] == 0 else 0,
+
+        # Rest ECG
+        'restecg_normal': 1,
+        'restecg_st-t abnormality': 0,
+
+        # Slope
+        'slope_flat': 1,
+        'slope_upsloping': 0,
+    }
+
+    # 🔥 Ensure correct order
+    columns = [
+        'age', 'trestbps', 'chol', 'fbs', 'thalch', 'exang', 'oldpeak',
+        'sex_Male',
+        'dataset_Hungary', 'dataset_Switzerland', 'dataset_VA Long Beach',
+        'cp_atypical angina', 'cp_non-anginal', 'cp_typical angina',
+        'restecg_normal', 'restecg_st-t abnormality',
+        'slope_flat', 'slope_upsloping'
+    ]
+
+    df = pd.DataFrame([features])[columns]
+
+    df_scaled = df.values
+
+    return df.values
 
 # ===============================
 # RANDOM FOREST

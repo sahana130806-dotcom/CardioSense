@@ -23,13 +23,14 @@ def predict():
 
         # 🔥 Combine results
         final_prediction = combine_predictions(rf_prediction, lstm_prediction)
-
+        print("Incoming:",data)
         return jsonify({
             "final_prediction": final_prediction,
             "rf_prediction": rf_prediction,
             "lstm_prediction": lstm_prediction
+            
         }), 200
-
+    
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -37,4 +38,5 @@ def predict():
         return jsonify({"error": "Model file not found"}), 500
 
     except Exception as e:
+        print("Error:",e)
         return jsonify({"error": str(e)}), 500
