@@ -1,52 +1,87 @@
 import { useState, useCallback } from "react";
-import Navbar from "@/components/Navbar";
+import Navbar from "@/components/AppNavbar";
 import PredictionForm, { type PatientData } from "@/components/PredictionForm";
 import PredictionResult from "@/components/PredictionResult";
-import PredictionHistory, { type PredictionRecord } from "@/components/PredictionHistory";
 import { Heart } from "lucide-react";
 
 const Index = () => {
   const [result, setResult] = useState<"high" | "low" | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [history, setHistory] = useState<PredictionRecord[]>([]);
 
   const handlePredict = useCallback(async (data: PatientData) => {
     setIsLoading(true);
     setResult(null);
 
-    // Simulate API call — replace with actual Flask backend call:
-    // const res = await fetch("http://localhost:5000/predict", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(data),
-    // });
-    // const json = await res.json();
-    // const prediction = json.prediction; // "high" | "low"
+    try {
+      // 🔥 CALL BACKEND
+      const response = await fetch("http://127.0.0.1:5000/predict", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: data.name,
+          gender: data.gender,
+          age: Number(data.age),
+          trestbps: Number(data.restingBP),
+          chol: Number(data.cholesterol),
+          thalach: Number(data.maxHeartRate),
+          fbs: data.fastingBS ? 1 : 0,
+          cp: mapChestPain(data.chestPainType),
+        }),
+      });
 
-    await new Promise((r) => setTimeout(r, 1800));
+      if (!response.ok) {
+        throw new Error("Backend error");
+      }
 
-    // Mock logic based on inputs
-    const age = parseInt(data.age) || 0;
-    const chol = parseInt(data.cholesterol) || 0;
-    const prediction: "high" | "low" =
-      age > 55 || chol > 250 || data.chestPainType === "asymptomatic"
-        ? "high"
-        : "low";
+      const res = await response.json();
 
-    setResult(prediction);
-    setHistory((prev) => [
-      {
-        id: Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
+      const prediction: "high" | "low" =
+        res.final_prediction === 1 ? "high" : "low";
+
+      setResult(prediction);
+
+      // 🔥 SAVE TO LOCAL STORAGE
+      const newRecord = {
+        name: data.name,
+        gender: data.gender,
         age: data.age,
+        restingBP: data.restingBP,
         cholesterol: data.cholesterol,
         maxHeartRate: data.maxHeartRate,
-        result: prediction,
-      },
-      ...prev,
-    ]);
+        result: res.final_prediction,
+        timestamp: new Date().toLocaleString(),
+      };
+
+      const existing = localStorage.getItem("history");
+      const parsed = existing ? JSON.parse(existing) : [];
+
+      localStorage.setItem("history", JSON.stringify([newRecord, ...parsed]));
+
+    } catch (error) {
+      console.error(error);
+      alert("Prediction failed. Check backend.");
+    }
+
     setIsLoading(false);
   }, []);
+
+  // 🔥 chest pain mapping
+  const mapChestPain = (type: string) => {
+    switch (type) {
+      case "typical":
+        return 0;
+      case "atypical":
+        return 1;
+      case "non-anginal":
+        return 2;
+      case "asymptomatic":
+        return 3;
+      default:
+        return 0;
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -54,7 +89,8 @@ const Index = () => {
 
       <main className="flex-1 py-8">
         <div className="container mx-auto max-w-3xl px-4">
-          {/* Hero blurb */}
+
+          {/* HERO */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
               <Heart className="h-8 w-8 text-primary" />
@@ -67,16 +103,12 @@ const Index = () => {
             </p>
           </div>
 
-          {/* Form card */}
+          {/* FORM */}
           <div className="rounded-2xl border bg-card p-6 shadow-card sm:p-8">
             <PredictionForm onPredict={handlePredict} isLoading={isLoading} />
             <PredictionResult result={result} />
           </div>
 
-          {/* History */}
-          <div className="mt-10">
-            <PredictionHistory records={history} />
-          </div>
         </div>
       </main>
 
