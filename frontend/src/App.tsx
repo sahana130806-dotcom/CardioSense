@@ -11,7 +11,7 @@ import HistoryPage from "./pages/HistoryPage";
 import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
-
+import ProtectedRoute from "./components/ProtectedRoute";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -23,11 +23,11 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Login />} />
           <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/predict" element={<Predict />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/predict" element={<ProtectedRoute><Predict /></ProtectedRoute>} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/analytics" element={<Analytics />} />
-            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
