@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Activity, AlertTriangle, ShieldCheck, TrendingUp } from "lucide-react";
+import { Activity, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Dashboard = () => {
@@ -43,13 +43,6 @@ const Dashboard = () => {
         color: "text-success",
         bg: "bg-success/10",
       },
-      {
-        title: "Accuracy Rate",
-        value: total > 0 ? ((low / total) * 100).toFixed(1) + "%" : "0%",
-        icon: TrendingUp,
-        color: "text-primary",
-        bg: "bg-primary/10",
-      },
     ];
   }, [history]);
 
@@ -65,7 +58,7 @@ const Dashboard = () => {
       </div>
 
       {/* STATS */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((s) => (
           <Card key={s.title} className="shadow-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
