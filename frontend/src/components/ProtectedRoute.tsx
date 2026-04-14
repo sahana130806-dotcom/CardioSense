@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate,Outlet } from "react-router-dom";
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const user = localStorage.getItem("cardiosense_user");
@@ -7,7 +7,7 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-
+  return <Outlet/>;
   // ✅ if logged in → allow access
   return children;
 };
