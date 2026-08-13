@@ -108,7 +108,7 @@ npm run dev
 **Rosanne Chugh**  
 - Frontend, Backend, Integration  
 
-**Rajapurohitham Sahana**  
+**Rajapurohitham Sahana and Yuvika Das**  
 - ML Models (Random Forest & LSTM)  
 
 ---
